@@ -1,5 +1,5 @@
 [Unit]
-Description=MQTT service
+Description=MQTTmanager service
 After=network.target
 
 [Service]
