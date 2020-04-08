@@ -14,13 +14,15 @@ buffer = []
 include_topics =  [ "room/OG/",
                     "room/EG/",
                     "room/UG/",
-                    "room/consumption"]
+                    "room/consumption",
+                    "garden/"]
 
 include_topics_json = {"zigbee2mqtt/0x00158d0003f0fe94": ["temperature", "humidity", "pressure"]}
 
 include_topics_direct = ["room/UG/presence",
                          "room/OG/presence",
-                         "room/EG/presence"]
+                         "room/EG/presence",
+                         "garden/pump"]
 
 include_topics_direct_json = {"zigbee2mqtt/0x00158d00044b4e1e": "contact"}
 
@@ -35,6 +37,8 @@ def on_connect(client, userdata, flags, rc):
     print("Connected with result code "+str(rc))
     client.subscribe("room/#")
     client.subscribe("zigbee2mqtt/#")
+    client.subscribe("garden/#")
+
 
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
