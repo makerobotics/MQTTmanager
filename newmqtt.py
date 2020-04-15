@@ -8,6 +8,8 @@ from collections import  namedtuple
 
 DataRow = namedtuple("DataRow", "topic value timestamp")
 buffer = []
+lastConsumption = 0
+monitoredTopics = {}
 
 # Priority:
 # all topiccs in include list which are not in the exclude list
@@ -15,6 +17,7 @@ include_topics =  [ "room/OG/",
                     "room/EG/",
                     "room/UG/",
                     "room/consumption",
+                    "global/consumption",
                     "garden/"]
 
 include_topics_json = {"zigbee2mqtt/0x00158d0003f0fe94": ["temperature", "humidity", "pressure"]}
@@ -26,11 +29,14 @@ include_topics_direct = ["room/UG/presence",
 
 include_topics_direct_json = {"zigbee2mqtt/0x00158d00044b4e1e": "contact"}
 
+monitored_topics = ["room/OG/t", "room/EG/t", "room/UG/t", "room/consumption"]
+
 dbFile = "/mnt/nas/mqttdata.db"
 #dbFile = "db.db"
 NAS_IP = "192.168.2.200"
 MQTT_IP = "192.168.2.201"
 NAS_PATH = "/mnt/nas"
+TIMEOUT = 600 # 10 mn
 
 # The callback for when the client receives a CONNACK response from the server.
 def on_connect(client, userdata, flags, rc):
@@ -38,12 +44,18 @@ def on_connect(client, userdata, flags, rc):
     client.subscribe("room/#")
     client.subscribe("zigbee2mqtt/#")
     client.subscribe("garden/#")
+    client.subscribe("global/#")
 
 
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
-    #print("MQTT: " + msg.topic + " --- " + str(msg.payload))
+    global lastConsumption
 
+    #print("MQTT: " + msg.topic + " --- " + str(msg.payload))
+    try:
+        updateMonitoredTopics(msg.topic.strip())
+    except:
+        traceback.print_exc()
     # check for include topics
     for t in include_topics:
         if msg.topic.startswith(t.decode('utf-8')):
@@ -51,6 +63,13 @@ def on_message(client, userdata, msg):
                 if not (isInBuffer(msg.topic.strip())):
                     float(msg.payload)
                     buffer.append(DataRow(topic=msg.topic.strip(), value=str(msg.payload.strip()), timestamp=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                    # Calculate the hourly consumption and add to buffer
+                    if "room/consumption" in msg.topic:
+                        if lastConsumption > 0:
+                            newConsumption = int((float(msg.payload)-lastConsumption)*1000)
+                            #buffer.append(DataRow(topic="global/consumption", value=str(newConsumption), timestamp=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                            client.publish("global/consumption", newConsumption)
+                        lastConsumption = float(msg.payload)
                     return
             except:
                 #traceback.print_exc()
@@ -71,6 +90,22 @@ def on_message(client, userdata, msg):
             except:
                 traceback.print_exc()
                 print(msg.topic)
+
+def updateMonitoredTopics(topic):
+    global monitoredTopics
+
+    if topic in monitored_topics:
+        monitoredTopics[topic] = int(datetime.datetime.now().strftime("%s"))
+        #print topic + " monitored"
+
+def monitorTopics():
+    if monitoredTopics:
+        for k,v in monitoredTopics.items():
+            elapsed = int(datetime.datetime.now().strftime("%s")) - v
+            #print(k + " last received for " + str(elapsed))
+            if elapsed > TIMEOUT:
+                print("Timeout: " + k + " (" + str(v) + ")")
+                client.publish("global/timeout", k + " (" + str(v) + " sec)")
 
 def isInBuffer(newtopic):
     # Passthrough direct topics
@@ -154,9 +189,11 @@ try:
             # connect to the NAS
             if isReachable(NAS_IP):
                 if isMounted(NAS_PATH):
-                    writeBufferToDB() 
+                    writeBufferToDB()
                 else:
                     mountNAS()
+            # Monitor the topics in the monitored topics list
+            monitorTopics()
         last_hour = datetime.datetime.now().hour
 except KeyboardInterrupt:
     print "Finished"
