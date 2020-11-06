@@ -10,6 +10,7 @@ DataRow = namedtuple("DataRow", "topic value timestamp")
 buffer = []
 lastConsumption = 0
 monitoredTopics = {}
+statuserror = {"/room/UG/status": "", "/room/EG/status": "", "/room/OG/status": ""}
 
 # Priority:
 # all topics will be included which are in the include list but not in the exclude list
@@ -53,7 +54,7 @@ def on_connect(client, userdata, flags, rc):
 
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
-    global lastConsumption, monitoredTopics
+    global lastConsumption, monitoredTopics, statuserror
 
     #print("MQTT: " + msg.topic + " --- " + str(msg.payload))
     
@@ -63,11 +64,13 @@ def on_message(client, userdata, msg):
             newConsumption = int((float(msg.payload)-lastConsumption)*1000)
             client.publish("global/consumption", newConsumption)
         lastConsumption = float(msg.payload)
-        
+    # check for status errors
+    if "status" in msg.topic:
+        statuserror[msg.topic] = str(msg.payload.strip())
     # update the topics timestamp each time received to monitor any timeout in the main loop
     try:
         if msg.topic.strip() in monitored_topics:
-            monitoredTopics[topic] = int(datetime.datetime.now().strftime("%s"))
+            monitoredTopics[msg.topic] = int(datetime.datetime.now().strftime("%s"))
     except:
         traceback.print_exc()
     # check for include topics
@@ -121,8 +124,10 @@ def monitorTopics():
                 result = k
                 #print("Timeout: " + result)
             # also set a fault if the sensor status is not "ok"
-            if "status" in k and not "ok" in v:
-                result = v
+            if "status" in k:
+                #print(k)
+                if not "ok" in statuserror[k]:
+                    result = statuserror[k]
     client.publish("global/timeout", result)
 
 def isInBuffer(newtopic):
