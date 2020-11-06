@@ -12,7 +12,7 @@ lastConsumption = 0
 monitoredTopics = {}
 
 # Priority:
-# all topiccs in include list which are not in the exclude list
+# all topics will be included which are in the include list but not in the exclude list
 include_topics =  [ "room/OG/",
                     "room/EG/",
                     "room/UG/",
@@ -22,6 +22,7 @@ include_topics =  [ "room/OG/",
 
 include_topics_json = {"zigbee2mqtt/0x00158d0003f0fe94": ["temperature", "humidity", "pressure"]}
 
+# Direct topics will be directly written in the database without buffer (event topics)
 include_topics_direct = ["room/UG/presence",
                          "room/OG/presence",
                          "room/EG/presence",
@@ -29,10 +30,14 @@ include_topics_direct = ["room/UG/presence",
 
 include_topics_direct_json = {"zigbee2mqtt/0x00158d00044b4e1e": "contact"}
 
-monitored_topics = ["room/OG/t", "room/EG/t", "room/UG/t", "room/consumption"]
+# not yet used
+exclude_topics =  [ "room/OG/status",
+                    "room/EG/status",
+                    "room/UG/status"]
+
+monitored_topics = ["room/OG/status", "room/EG/status", "room/UG/status", "room/power"]
 
 dbFile = "/mnt/nas/mqttdata.db"
-#dbFile = "db.db"
 NAS_IP = "192.168.2.200"
 MQTT_IP = "192.168.2.201"
 NAS_PATH = "/mnt/nas"
@@ -46,30 +51,32 @@ def on_connect(client, userdata, flags, rc):
     client.subscribe("garden/#")
     client.subscribe("global/#")
 
-
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
-    global lastConsumption
+    global lastConsumption, monitoredTopics
 
     #print("MQTT: " + msg.topic + " --- " + str(msg.payload))
+    
+    # Calculate the hourly consumption and add to buffer (this is not the mean value over an hour but the first 10mn of the hour... To be improved
+    if "room/consumption" in msg.topic:
+        if lastConsumption > 0:
+            newConsumption = int((float(msg.payload)-lastConsumption)*1000)
+            client.publish("global/consumption", newConsumption)
+        lastConsumption = float(msg.payload)
+        
+    # update the topics timestamp each time received to monitor any timeout in the main loop
     try:
-        updateMonitoredTopics(msg.topic.strip())
+        if msg.topic.strip() in monitored_topics:
+            monitoredTopics[topic] = int(datetime.datetime.now().strftime("%s"))
     except:
         traceback.print_exc()
     # check for include topics
     for t in include_topics:
-        if msg.topic.startswith(t.decode('utf-8')):
+        if msg.topic.startswith(t.decode('utf-8')) and not "status" in msg.topic:
             try:
                 if not (isInBuffer(msg.topic.strip())):
                     float(msg.payload)
                     buffer.append(DataRow(topic=msg.topic.strip(), value=str(msg.payload.strip()), timestamp=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                    # Calculate the hourly consumption and add to buffer
-                    if "room/consumption" in msg.topic:
-                        if lastConsumption > 0:
-                            newConsumption = int((float(msg.payload)-lastConsumption)*1000)
-                            #buffer.append(DataRow(topic="global/consumption", value=str(newConsumption), timestamp=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                            client.publish("global/consumption", newConsumption)
-                        lastConsumption = float(msg.payload)
                     return
             except:
                 #traceback.print_exc()
@@ -91,21 +98,32 @@ def on_message(client, userdata, msg):
                 traceback.print_exc()
                 print(msg.topic)
 
-def updateMonitoredTopics(topic):
-    global monitoredTopics
-
-    if topic in monitored_topics:
+# initialize the dictionary with all the monitored topics. Value is current datetime
+def initMonitorings():
+    #print "Init monitoring"
+    for topic in monitored_topics:
         monitoredTopics[topic] = int(datetime.datetime.now().strftime("%s"))
-        #print topic + " monitored"
+        #print "Init: " + topic
 
+# check for topics which are not received for more than TIMEOUT
 def monitorTopics():
+    global lastConsumption
+    result = "ok"
     if monitoredTopics:
         for k,v in monitoredTopics.items():
             elapsed = int(datetime.datetime.now().strftime("%s")) - v
             #print(k + " last received for " + str(elapsed))
             if elapsed > TIMEOUT:
-                print("Timeout: " + k + " (" + str(v) + ")")
-                client.publish("global/timeout", k + " (" + str(v) + " sec)")
+                # special logic to reset the virtual consumption in case of timeout
+                if "room/power" in k:
+                    lastConsumption = 0
+                    print("Reset lastConsumption after sensor timeout")
+                result = k
+                #print("Timeout: " + result)
+            # also set a fault if the sensor status is not "ok"
+            if "status" in k and not "ok" in v:
+                result = v
+    client.publish("global/timeout", result)
 
 def isInBuffer(newtopic):
     # Passthrough direct topics
@@ -181,6 +199,7 @@ client.loop_start()
 
 last_hour = datetime.datetime.now().hour
 
+initMonitorings()
 try:
     while True:
         sleep(20)
@@ -193,7 +212,7 @@ try:
                 else:
                     mountNAS()
             # Monitor the topics in the monitored topics list
-            monitorTopics()
+        monitorTopics()
         last_hour = datetime.datetime.now().hour
 except KeyboardInterrupt:
     print "Finished"
