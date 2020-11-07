@@ -8,9 +8,11 @@ from collections import  namedtuple
 
 DataRow = namedtuple("DataRow", "topic value timestamp")
 buffer = []
-lastConsumption = 0
+lastConsumption = 0 # last counter value in W
+lastConsumptionTime = 0 # last timestamp in s
 monitoredTopics = {}
-statuserror = {"/room/UG/status": "", "/room/EG/status": "", "/room/OG/status": ""}
+#statuserror = {"/room/UG/status": "ok", "/room/EG/status": "ok", "/room/OG/status": "ok"}
+statuserror = {}
 
 # Priority:
 # all topics will be included which are in the include list but not in the exclude list
@@ -54,16 +56,27 @@ def on_connect(client, userdata, flags, rc):
 
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
-    global lastConsumption, monitoredTopics, statuserror
+    global lastConsumption, lastConsumptionTime, monitoredTopics, statuserror
 
     #print("MQTT: " + msg.topic + " --- " + str(msg.payload))
     
     # Calculate the hourly consumption and add to buffer (this is not the mean value over an hour but the first 10mn of the hour... To be improved
     if "room/consumption" in msg.topic:
+        print("consumption received")
         if lastConsumption > 0:
-            newConsumption = int((float(msg.payload)-lastConsumption)*1000)
-            client.publish("global/consumption", newConsumption)
+            print("consumption received")
+            try:
+                elapsedTime = int(datetime.datetime.now().strftime("%s")) - lastConsumptionTime
+                #print(elapsedTime)
+                newConsumption = int((float(msg.payload)-lastConsumption)*1000)*3600/elapsedTime
+                #print(newConsumption)
+                client.publish("global/consumption", newConsumption)
+            except:
+                traceback.print_exc()
         lastConsumption = float(msg.payload)
+        lastConsumptionTime = int(datetime.datetime.now().strftime("%s"))
+        #print(lastConsumption)
+            
     # check for status errors
     if "status" in msg.topic:
         statuserror[msg.topic] = str(msg.payload.strip())
@@ -126,6 +139,7 @@ def monitorTopics():
             # also set a fault if the sensor status is not "ok"
             if "status" in k:
                 #print(k)
+                #print(statuserror[k])
                 if not "ok" in statuserror[k]:
                     result = statuserror[k]
     client.publish("global/timeout", result)
