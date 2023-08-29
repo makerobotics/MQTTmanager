@@ -88,7 +88,7 @@ def on_message(client, userdata, msg):
         traceback.print_exc()
     # check for include topics
     for t in include_topics:
-        if msg.topic.startswith(t.decode('utf-8')) and not "status" in msg.topic:
+        if msg.topic.startswith(t) and not "status" in msg.topic:
             try:
                 if not (isInBuffer(msg.topic.strip())):
                     float(msg.payload)
@@ -147,14 +147,14 @@ def monitorTopics():
 def isInBuffer(newtopic):
     # Passthrough direct topics
     for t in include_topics_direct:
-        if newtopic.startswith(t.decode('utf-8')):
+        if newtopic.startswith(t):
             return False
     for t in include_topics_direct_json:
-        if newtopic.startswith(t.decode('utf-8')):
+        if newtopic.startswith(t):
             return False
     # check if record from current hour already in buffer
     for top, val, tim in buffer:
-        if newtopic == top.decode('utf-8'):
+        if newtopic == top:
             #print("found topic")
             today = datetime.datetime.now().strftime("%Y-%m-%d %H")
             if(tim.startswith(today)):
