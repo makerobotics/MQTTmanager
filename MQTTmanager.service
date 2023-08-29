@@ -3,7 +3,7 @@ Description=MQTTmanager service
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/python -u newmqtt.py
+ExecStart=/usr/bin/python3 -u newmqtt.py
 WorkingDirectory=/home/pi/mqtt/MQTTmanager
 StandardOutput=inherit
 StandardError=inherit
