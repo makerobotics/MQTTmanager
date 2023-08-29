@@ -163,9 +163,10 @@ def isInBuffer(newtopic):
     return False
 
 def showBuffer():
-    print "Buffer: " + str(len(buffer))
+    print("Buffer: " + str(len(buffer)))
     for top, val, tim in buffer:
-        print top, val, tim
+        #print top, val, tim
+        pass
 
 def writeBufferToDB():
     #print("MQTT2DB: " + topic + " " + str(payload))
@@ -191,12 +192,12 @@ def writeBufferToDB():
 def isMounted(path):
     res = os.path.ismount(path)
     if not res:
-        print path + " is not mounted"
+        print(path + " is not mounted")
     return res
 
 def mountNAS():
     os.system('sudo mount -t nfs 192.168.2.200:/homes/Yann /mnt/nas') #NFS is able to connect remote on sqlite db
-    print "Mount path"
+    print("Mount path")
 
 def isReachable(host):
     command = ['ping', '-c', '1', host]
@@ -204,7 +205,7 @@ def isReachable(host):
         res = subprocess.call(command, stdout=f) == 0
 
     if not res:
-        print "host " + host + " is not reachable"
+        print("host " + host + " is not reachable")
     return res
 
 # MAIN PROGRAM ---------------------------------------------
@@ -234,5 +235,5 @@ try:
         monitorTopics()
         last_hour = datetime.datetime.now().hour
 except KeyboardInterrupt:
-    print "Finished"
+    print("Finished")
     client.loop_stop()
