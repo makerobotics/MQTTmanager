@@ -11,8 +11,8 @@ buffer = []
 lastConsumption = 0 # last counter value in W
 lastConsumptionTime = 0 # last timestamp in s
 monitoredTopics = {}
-#statuserror = {"/room/UG/status": "ok", "/room/EG/status": "ok", "/room/OG/status": "ok"}
-statuserror = {}
+statuserror = {"/room/UG/status": "init", "/room/EG/status": "init", "/room/OG/status": "init"}
+#statuserror = {}
 
 # Priority:
 # all topics will be included which are in the include list but not in the exclude list
