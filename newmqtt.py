@@ -11,7 +11,7 @@ buffer = []
 lastConsumption = 0 # last counter value in W
 lastConsumptionTime = 0 # last timestamp in s
 monitoredTopics = {}
-statuserror = {"room/UG/status": "init", "room/EG/status": "init", "room/OG/status": "init"}
+statuserror = {"room/UG/status": "init_UG", "room/EG/status": "init_EG", "room/OG/status": "init_OG"}
 #statuserror = {}
 
 # Priority:
@@ -70,7 +70,7 @@ def on_message(client, userdata, msg):
                 #print(elapsedTime)
                 newConsumption = int((float(msg.payload)-lastConsumption)*1000)*3600/elapsedTime
                 #print(newConsumption)
-                client.publish("global/consumption", newConsumption)
+                client.publish("global/consumption", "{:.2f}".format(newConsumption))
             except:
                 traceback.print_exc()
         lastConsumption = float(msg.payload)
