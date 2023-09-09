@@ -169,25 +169,26 @@ def showBuffer():
         pass
 
 def writeBufferToDB():
-    #print("MQTT2DB: " + topic + " " + str(payload))
+    print("MQTT2DB: " + topic + " " + str(payload))
     if(len(buffer) == 0):
         return
     conn = sqlite3.connect(dbFile)
     c = conn.cursor()
-    #print "Writing to db..."
+    print("Writing to db...")
     for i in buffer:
-        #print "Inserting: "+i.topic
+        print("Inserting: "+i.topic)
         try:
             c.execute("INSERT INTO table_data(timestamp, topic, value) VALUES (?,?,?)", (i.timestamp, i.topic, float(i.value)))
             conn.commit()
         except:
             traceback.print_exc()
-            #print("Could not write: " + i.topic)
+            print("Could not write: " + i.topic)
 
     conn.close()
     # clear buffer (use clear() in Python 3)
-    buffer[:] = []
-    #print "done"
+    #buffer[:] = []
+    buffer.clear()
+    print("done")
 
 def isMounted(path):
     res = os.path.ismount(path)
