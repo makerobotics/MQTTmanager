@@ -231,8 +231,11 @@ try:
                 if isMounted(NAS_PATH):
                     writeBufferToDB()
                 else:
+                    print("mount NAS")
                     mountNAS()
             # Monitor the topics in the monitored topics list
+            else:
+                print("NAS is not reachable")
         monitorTopics()
         last_hour = datetime.datetime.now().hour
 except KeyboardInterrupt:
