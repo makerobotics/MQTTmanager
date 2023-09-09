@@ -169,7 +169,7 @@ def showBuffer():
         pass
 
 def writeBufferToDB():
-    print("MQTT2DB: " + topic + " " + str(payload))
+    #print("MQTT2DB: " + topic + " " + str(payload))
     if(len(buffer) == 0):
         return
     conn = sqlite3.connect(dbFile)
